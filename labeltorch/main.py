@@ -15,6 +15,7 @@ from PySide6.QtCore import Qt
 from labeltorch.app.infra.logging.logger import setup_logger
 from labeltorch.app.context import AppContext
 from labeltorch.app.ui.main_window import MainWindow
+from labeltorch.app.infra.startup_check import StartupCheck
 
 
 def global_exception_handler(exc_type, exc_value, exc_tb):
@@ -44,18 +45,40 @@ def main():
     # Global exception handler
     sys.excepthook = global_exception_handler
 
+    # Startup self-check
+    checker = StartupCheck()
+    results = checker.run_all()
+    if checker.has_errors():
+        logger.error("Startup check failed")
+        # Still try to start, but warn user
+        try:
+            app = QApplication(sys.argv)
+            QMessageBox.warning(
+                None, "Startup Check Failed",
+                f"Some checks failed:\n\n{checker.get_summary_text()}\n\n"
+                "The application may not work correctly.",
+            )
+        except Exception:
+            pass
+
     # Create Qt application
-    app = QApplication(sys.argv)
+    app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName("LabelTorch")
     app.setOrganizationName("LabelTorch")
 
     # Initialize app context
     ctx = AppContext()
 
-    # Create main window and inject project service
-    window = MainWindow(project_service=ctx.project_service)
+    # Create main window
+    window = MainWindow()
+    window.set_app_context(ctx)
     window.show()
+
+    if checker.has_warnings():
+        logger.warning("Startup warnings: %s", checker.get_summary_text())
+
     logger.info("LabelTorch started")
+    logger.info("Startup check:\n%s", checker.get_summary_text())
 
     # Event loop
     exit_code = app.exec()
