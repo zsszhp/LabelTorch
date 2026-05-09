@@ -2,7 +2,7 @@
 
 ## 预备任务
 
-- [ ] Task 0: 环境准备与项目初始化
+- [x] Task 0: 环境准备与项目初始化
     - 0.1: 确认 Anaconda 环境与 Python 版本，创建 labeltorch 虚拟环境
     - 0.2: 安装核心依赖（PySide6, ultralytics, onnxruntime, pytest 等）
     - 0.3: 创建项目目录结构（app/ui, app/services, app/domain, app/infra, app/tasks, tests, packaging）
@@ -11,7 +11,7 @@
 
 ## M1: 项目骨架
 
-- [ ] Task 1: 搭建 PySide6 应用壳与主窗口
+- [x] Task 1: 搭建 PySide6 应用壳与主窗口
     - 1.1: 创建 main.py 入口与 QApplication 初始化
     - 1.2: 实现 MainWindow 主窗口（侧边导航栏 + 内容区域）
     - 1.3: 实现 5 个页面容器（项目/数据集/标注/训练/导出）与页面切换逻辑

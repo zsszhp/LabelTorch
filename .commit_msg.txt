@@ -1,0 +1,13 @@
+feat(M1): 项目骨架 - PySide6应用壳、SQLite数据模型、日志系统、项目管理
+
+实现内容:
+- PySide6主窗口(侧边导航+5页面切换+项目卡片列表+创建对话框)
+- SQLite数据库初始化与v001迁移(7张核心表+索引+WAL模式)
+- 领域模型定义(Project/Dataset/TrainJob/ModelVersion等8个实体+枚举+Schema)
+- 统一日志系统(文件+控制台双输出,5MB轮转)
+- ProjectService(创建/列表/查询/删除项目,自动创建子目录)
+- AppContext全局上下文管理
+- 全局异常捕获与优雅退出
+- 17个单元测试全部通过
+
+验收: 可启动应用,创建项目并持久化到SQLite
