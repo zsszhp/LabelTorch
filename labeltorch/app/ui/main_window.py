@@ -131,6 +131,13 @@ class MainWindow(QMainWindow):
         for btn in self.nav_buttons:
             btn.setChecked(btn.page_index == index)
 
+    def set_app_context(self, ctx):
+        """Set app context and propagate to all pages"""
+        self._app_context = ctx
+        for page in self._pages:
+            if hasattr(page, 'set_app_context'):
+                page.set_app_context(ctx)
+
     def set_current_project(self, project: dict):
         self._current_project = project
         self.status_label.setText(
