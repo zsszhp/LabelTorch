@@ -4,11 +4,11 @@ import logging
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QLabel, QComboBox, QListWidget, QListWidgetItem,
-    QSplitter, QMessageBox, QSlider,
+    QSplitter,
 )
 from PySide6.QtCore import Qt
 
-from labeltorch.app.ui.widgets.image_canvas import ImageCanvas, BBox
+from labeltorch.app.ui.widgets.image_canvas import ImageCanvas, BBoxItem
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ class AnnotationPage(QWidget):
         toolbar.addWidget(self.btn_save)
 
         self.btn_fit = QPushButton("Fit")
-        self.btn_fit.clicked.connect(lambda: self.canvas.fit_to_window())
+        self.btn_fit.clicked.connect(lambda: self.canvas.fit_to_view())
         self.btn_fit.setStyleSheet("padding: 4px 8px;")
         toolbar.addWidget(self.btn_fit)
 
@@ -88,6 +88,7 @@ class AnnotationPage(QWidget):
         self.canvas = ImageCanvas()
         self.canvas.boxes_changed.connect(self._on_boxes_changed)
         self.canvas.box_selected.connect(self._on_box_selected)
+        self.canvas.sample_navigate.connect(self._on_navigate)
         splitter.addWidget(self.canvas)
 
         # Side panel
@@ -103,7 +104,6 @@ class AnnotationPage(QWidget):
 
         side_layout.addWidget(QLabel("Boxes:"))
         self.box_list = QListWidget()
-        self.box_list.currentRowChanged.connect(self._on_box_list_select)
         side_layout.addWidget(self.box_list)
 
         side_layout.addStretch()
@@ -124,19 +124,23 @@ class AnnotationPage(QWidget):
         if not self._app_context:
             return
         self._current_dataset_id = dataset_id
-        self._samples = self._app_context.dataset_service.get_samples(dataset_id, status="valid")
+        self._samples = self._app_context.dataset_service.get_samples(
+            dataset_id, status="valid"
+        )
         self._current_idx = -1
 
         # Load class names
-        mappings = self._app_context.dataset_service.get_class_mappings(dataset_id)
+        mappings = self._app_context.dataset_service.get_classes(dataset_id)
         class_names = {}
         for m in mappings:
             class_names[m["mapped_id"]] = m["class_name"]
         sorted_names = [class_names[k] for k in sorted(class_names.keys())]
         self.canvas.set_class_names(sorted_names)
 
+        self.class_combo.blockSignals(True)
         self.class_combo.clear()
         self.class_combo.addItems(sorted_names)
+        self.class_combo.blockSignals(False)
 
         if self._samples:
             self._go_to(0)
@@ -151,6 +155,12 @@ class AnnotationPage(QWidget):
         if self._current_idx < len(self._samples) - 1:
             self._go_to(self._current_idx + 1)
 
+    def _on_navigate(self, direction: int):
+        if direction < 0:
+            self._go_prev()
+        else:
+            self._go_next()
+
     def _go_to(self, idx: int):
         if idx < 0 or idx >= len(self._samples):
             return
@@ -162,33 +172,40 @@ class AnnotationPage(QWidget):
         sample = self._samples[idx]
         self.canvas.load_image(sample["image_path"])
 
-        # Load existing boxes
-        boxes = self._app_context.annotation_service.load_sample_boxes(sample["id"])
-        bbox_objs = [
-            BBox(b["class_id"], b["x_center"], b["y_center"], b["width"], b["height"],
-                 b.get("confidence", 1.0))
+        # Load existing boxes from label file
+        boxes = self._app_context.annotation_service.get_sample_boxes(sample["id"])
+        bbox_items = [
+            BBoxItem(
+                class_id=b["class_id"],
+                x_center=b["x_center"],
+                y_center=b["y_center"],
+                width=b["width"],
+                height=b["height"],
+            )
             for b in boxes
         ]
-        self.canvas.set_boxes(bbox_objs)
+        # set_boxes expects list of dicts
+        self.canvas.set_boxes([b.to_dict() for b in bbox_items])
         self._update_box_list()
         self.lbl_index.setText(f"{idx + 1} / {len(self._samples)}")
-        self.status_label.setText(f"Sample: {sample['image_path'].split('/')[-1]}")
+
+        fname = sample["image_path"].replace("\\", "/").split("/")[-1]
+        self.status_label.setText(f"Sample: {fname}")
 
     def _update_box_list(self):
         """Update box list widget from canvas boxes"""
         self.box_list.clear()
-        for i, box in enumerate(self.canvas.get_boxes()):
-            cls_name = f"Class {box.class_id}"
-            if box.class_id < self.class_combo.count():
-                cls_name = self.class_combo.itemText(box.class_id)
-            item = QListWidgetItem(f"{i}: {cls_name} ({box.confidence:.2f})")
-            self.box_list.addItem(item)
+        for i, bdict in enumerate(self.canvas.get_boxes()):
+            cls_name = f"Class {bdict['class_id']}"
+            idx = bdict["class_id"]
+            if idx < self.class_combo.count():
+                cls_name = self.class_combo.itemText(idx)
+            self.box_list.addItem(f"{i}: {cls_name}")
 
     def _toggle_draw_mode(self, checked):
         if checked:
             self.btn_select.setChecked(False)
             self.canvas.set_mode(ImageCanvas.MODE_DRAW)
-            self.canvas.set_draw_class(self.class_combo.currentIndex())
         elif not self.btn_select.isChecked():
             self.canvas.set_mode(ImageCanvas.MODE_VIEW)
 
@@ -200,7 +217,7 @@ class AnnotationPage(QWidget):
             self.canvas.set_mode(ImageCanvas.MODE_VIEW)
 
     def _delete_selected(self):
-        self.canvas.delete_selected_box()
+        self.canvas.delete_selected()
         self._update_box_list()
 
     def _save_current(self):
@@ -208,7 +225,7 @@ class AnnotationPage(QWidget):
         if not self._app_context or self._current_idx < 0:
             return
         sample = self._samples[self._current_idx]
-        boxes = [b.to_dict() for b in self.canvas.get_boxes()]
+        boxes = self.canvas.get_boxes()
         result = self._app_context.annotation_service.save_annotation_edit(
             sample["id"], boxes
         )
@@ -224,13 +241,10 @@ class AnnotationPage(QWidget):
         if 0 <= idx < self.box_list.count():
             self.box_list.setCurrentRow(idx)
 
-    def _on_box_list_select(self, row: int):
-        pass  # Selection handled by canvas
-
     def _on_class_changed(self, idx: int):
         if idx >= 0:
-            self.canvas.set_draw_class(idx)
-            self.canvas.change_selected_class(idx)
+            cls_name = self.class_combo.itemText(idx) if idx < self.class_combo.count() else ""
+            self.canvas.set_selected_class(idx, cls_name)
 
     def on_project_changed(self, project):
         self._current_project = project

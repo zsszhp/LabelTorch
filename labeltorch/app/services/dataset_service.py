@@ -241,7 +241,9 @@ class DatasetService:
         val_samples = sample_paths[split_idx:]
 
         # Write split files
-        project_root = dataset.get("root_path", os.path.dirname(dataset["image_dir"]))
+        # Get project root path for splits directory
+        project_row = self.db.fetchone("SELECT root_path FROM projects WHERE id = ?", (dataset["project_id"],))
+        project_root = project_row["root_path"] if project_row else os.path.dirname(dataset["image_dir"])
         splits_dir = ensure_dir(os.path.join(project_root, "datasets", dataset_id, "splits"))
 
         train_txt = os.path.join(splits_dir, "train.txt")

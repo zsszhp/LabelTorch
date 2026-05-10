@@ -2,6 +2,7 @@
 
 import os
 import uuid
+import json
 import shutil
 import logging
 import subprocess
@@ -26,7 +27,7 @@ class ExportService:
         """Create an export task"""
         task_id = str(uuid.uuid4())
         created_at = datetime.now().isoformat()
-        options_json = str(options) if options else None
+        options_json = json.dumps(options) if options else None
 
         self.db.execute(
             "INSERT INTO export_tasks (id, version_id, format, options_json, status, created_at) "

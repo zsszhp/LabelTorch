@@ -102,6 +102,8 @@ class ImageCanvas(QWidget):
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMinimumSize(400, 300)
+        self._class_names: list[str] = []
+        self._draw_class_id: int = 0
 
     # --- Image loading ---
 
@@ -269,7 +271,8 @@ class ImageCanvas(QWidget):
             # Start drawing a new box
             norm_pt = self._screen_to_norm(pos)
             self._drag_start = norm_pt
-            self._drawing_box = BBoxItem(0, norm_pt.x(), norm_pt.y(), 0, 0)
+            cls_name = self._class_names[self._draw_class_id] if self._draw_class_id < len(self._class_names) else f"class_{self._draw_class_id}"
+            self._drawing_box = BBoxItem(self._draw_class_id, norm_pt.x(), norm_pt.y(), 0, 0, cls_name)
             return
 
         if self._mode == self.MODE_SELECT:
@@ -314,7 +317,7 @@ class ImageCanvas(QWidget):
             cy = (y1 + y2) / 2
             w = abs(x2 - x1)
             h = abs(y2 - y1)
-            self._drawing_box = BBoxItem(0, cx, cy, w, h)
+            self._drawing_box = BBoxItem(self._draw_class_id, cx, cy, w, h)
             self.update()
             return
 
@@ -438,6 +441,14 @@ class ImageCanvas(QWidget):
             self._boxes[self._selected_idx].class_name = class_name or f"class_{class_id}"
             self.boxes_changed.emit()
             self.update()
+
+    def set_class_names(self, names: list):
+        """Set class name list for display"""
+        self._class_names = names
+
+    def set_draw_class(self, class_id: int):
+        """Set class ID for new box drawing"""
+        self._draw_class_id = class_id
 
     def _do_resize(self, screen_pos: QPointF):
         """Handle resize by dragging a handle"""

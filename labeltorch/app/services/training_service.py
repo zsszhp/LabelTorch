@@ -263,14 +263,21 @@ class TrainingService:
             return
 
         vs = VersionService(self.db)
-        # Look for best.pt in the training output directory
-        best_pt = os.path.join(
-            json.loads(job.get("config_json", "{}")).get("project_root", ""),
-            "models", job_id, "weights", "best.pt",
-        )
-        if not os.path.exists(best_pt):
-            # Try Ultralytics default path
-            best_pt = None
+        # Look for best.pt in Ultralytics output directory
+        # Ultralytics saves to <project>/<name>/weights/best.pt
+        job_row = self.db.fetchone("SELECT * FROM train_jobs WHERE id = ?", (job_id,))
+        config_json = job_row.get("config_json", "{}") if job_row else "{}"
+
+        # Check common Ultralytics output paths
+        best_pt = None
+        possible_paths = [
+            os.path.join("models", job_id, "weights", "best.pt"),
+            os.path.join("runs", "detect", "train", "weights", "best.pt"),
+        ]
+        for p in possible_paths:
+            if os.path.exists(p):
+                best_pt = os.path.abspath(p)
+                break
 
         vs.create_version(
             project_id=job["project_id"],
