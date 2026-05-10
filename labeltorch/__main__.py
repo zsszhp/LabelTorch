@@ -1,9 +1,9 @@
-"""标炬（LabelTorch）启动入口
+"""LabelTorch startup entry point
 
-用法: python -m labeltorch
+Usage: python -m labeltorch
 """
 
-from labeltorch.main import setup_app
+from labeltorch.main import main
 
 if __name__ == "__main__":
-    setup_app()
+    main()
