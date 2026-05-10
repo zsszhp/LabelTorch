@@ -1,3 +1,6 @@
+# PyInstaller
+*.spec
+
 # LabelTorch project specific
 *.db
 *.db-wal

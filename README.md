@@ -1,404 +1,17 @@
 <div align="center">
 
-# LabelTorch
+# 标炬 LabelTorch
 
-**Industrial Defect Detection Annotation & Training Tool**
+**工业缺陷检测标注与训练工具**
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Ultralytics](https://img.shields.io/badge/Ultralytics-8.0+-FF6F00.svg)](https://github.com/ultralytics/ultralytics)
 [![PySide6](https://img.shields.io/badge/PySide6-6.5+-41CD52.svg)](https://doc.qt.io/qtforpython-6/)
 
-An end-to-end desktop application for image annotation, YOLO model training, and model export — purpose-built for industrial defect detection workflows.
-
-[English](#features) | [中文文档](#标炬-labeltorch)
-
-</div>
-
----
-
-## Features
-
-- **Project Management** — Create, open, and delete projects, each with isolated data directories and SQLite databases
-- **Dataset Import** — Import YOLO-format datasets (images + `.txt` labels) with automatic validation and integrity checks
-- **Annotation Editing** — Draw, select, move, and resize bounding boxes on a custom `ImageCanvas` widget with per-class color coding
-- **Dataset Operations** — Train/val split with Ultralytics `data.yaml` generation, class ID remapping across datasets
-- **Model Training** — Configure and launch YOLOv5/v8/v8-OBB/v10/v11 training jobs via Ultralytics, with real-time log monitoring and state machine lifecycle management
-- **ML-Assisted Annotation** — Load a trained model, run batch inference to auto-generate candidate bounding boxes, then bulk-confirm or filter by confidence threshold
-- **Model Versioning** — Automatic version tracking after each training run with parent lineage linkage
-- **Model Export** — Export trained models as `.pt` (PyTorch) or `.onnx` (ONNX) format with optional verification
-- **Startup Self-Check** — Automatic environment diagnostics on launch (Python packages, CUDA, SQLite, ONNX Runtime)
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│                    UI Layer                      │
-│   MainWindow │ 5 Pages │ ImageCanvas Widget     │
-├─────────────────────────────────────────────────┤
-│                Services Layer                    │
-│  Project │ Dataset │ Annotation │ Training      │
-│  Version │ Export  │ Inference  │ Assisted      │
-├─────────────────────────────────────────────────┤
-│                Domain Layer                      │
-│  Models (9) │ Enums (6) │ Schemas (13) │ BBox  │
-├─────────────────────────────────────────────────┤
-│            Infrastructure Layer                  │
-│  SQLite+WAL │ Migrations │ FileRepo │ Logger   │
-│  YOLOParser │ StartupCheck                     │
-└─────────────────────────────────────────────────┘
-```
-
-The application follows a layered architecture with clear separation of concerns:
-
-- **Domain Layer** — Data models, enums, request/response schemas, and shared value objects
-- **Services Layer** — Business logic with constructor-injected `Database` dependency
-- **Infrastructure Layer** — SQLite persistence, file I/O, logging, and environment checks
-- **UI Layer** — PySide6-based desktop interface with sidebar navigation and page stack
-
-All services are registered in `AppContext`, which serves as the application-wide service locator and is injected into UI pages.
-
-## Tech Stack
-
-| Component | Technology | Version |
-|-----------|-----------|---------|
-| UI Framework | PySide6 (Qt for Python) | ≥ 6.5 |
-| ML Framework | Ultralytics | ≥ 8.0 |
-| Image Processing | Pillow | ≥ 9.0 |
-| Database | SQLite (WAL mode) | built-in |
-| ONNX Runtime | onnxruntime (optional) | ≥ 1.15 |
-| Packaging | PyInstaller | — |
-| Testing | pytest | ≥ 7.0 |
-
-## Getting Started
-
-### Prerequisites
-
-- **Python** ≥ 3.10
-- **CUDA** (optional, recommended for GPU-accelerated training)
-
-### Installation
-
-#### Option 1: Install from Source (Recommended)
-
-```bash
-git clone https://github.com/your-username/LabelTorch.git
-cd LabelTorch
-pip install -e .
-```
-
-#### Option 2: Install with pip
-
-```bash
-pip install labeltorch
-```
-
-#### Option 3: Using Conda
-
-```bash
-conda create -n labeltorch python=3.10
-conda activate labeltorch
-git clone https://github.com/your-username/LabelTorch.git
-cd LabelTorch
-pip install -e .
-```
-
-For ONNX export support, install the optional dependency:
-
-```bash
-pip install -e ".[export]"
-```
-
-### Running
-
-After installation, launch the application with:
-
-```bash
-labeltorch
-```
-
-Or run directly as a Python module:
-
-```bash
-python -m labeltorch
-```
-
-On Windows, you can also double-click `start.bat` (edit the Python path inside the file to match your environment first).
-
-## Configuration
-
-LabelTorch requires zero configuration to get started. All data is stored under:
-
-```
-~/.labeltorch/
-├── labeltorch.db          # Global database (SQLite, WAL mode)
-├── logs/                  # Application logs
-│   └── labeltorch.log     # Rotating log (10MB × 5 backups)
-└── (project directories)
-    ├── datasets/          # Imported dataset images & labels
-    ├── models/            # Trained model weights (.pt)
-    ├── exports/           # Exported models (.pt / .onnx)
-    └── .cache/            # Temporary cache
-```
-
-### Startup Self-Check
-
-On every launch, LabelTorch runs 7 automatic checks:
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| Writable Directory | Error | Can write to `~/.labeltorch/` |
-| SQLite | Error | SQLite version and WAL mode support |
-| PySide6 | Error | PySide6 is installed and importable |
-| Pillow | Error | Pillow is installed and importable |
-| Ultralytics | Error | Ultralytics is installed and importable |
-| CUDA | Warning | CUDA availability for GPU training |
-| ONNX Runtime | Warning | ONNX Runtime for export verification |
-
-Errors will display a warning dialog but the application will still attempt to start. Warnings are logged but do not interrupt startup.
-
-### CUDA Setup
-
-For GPU-accelerated training, install PyTorch with CUDA support:
-
-```bash
-# Example: CUDA 11.8
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-
-# Example: CUDA 12.1
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-```
-
-Without CUDA, training will fall back to CPU (significantly slower).
-
-## Usage
-
-### Workflow
-
-The typical end-to-end workflow in LabelTorch:
-
-```
-Create Project → Import Dataset → Validate & Split → Annotate → Train → Version → Export
-                                    ↑                              │
-                                    └──── Assisted Annotation ←────┘
-```
-
-### 1. Create a Project
-
-Launch LabelTorch, click **"New Project"** on the Project page, enter a name and choose a storage directory. Each project maintains its own isolated database and directory structure.
-
-### 2. Import a Dataset
-
-Navigate to the Dataset page, click **"Import"**, and select a YOLO-format dataset directory. The directory should contain:
-
-```
-dataset/
-├── images/
-│   ├── img_001.jpg
-│   ├── img_002.jpg
-│   └── ...
-└── labels/
-    ├── img_001.txt      # YOLO format: class x_center y_center width height
-    ├── img_002.txt
-    └── ...
-```
-
-After import, LabelTorch validates label integrity, detects missing/extra labels, and reports statistics.
-
-### 3. Validate & Split
-
-Use the **"Validate"** button to check for label errors (out-of-bounds coordinates, invalid class IDs, empty labels). Then use **"Split"** to divide the dataset into train/val sets — this generates the `data.yaml` file required by Ultralytics training.
-
-### 4. Annotate
-
-Open the Annotation page to browse images and draw bounding boxes:
-- **Draw**: Click and drag on the image to create a new box
-- **Select**: Click on an existing box to select it
-- **Move**: Drag a selected box to reposition it
-- **Resize**: Drag the corner handles of a selected box
-- **Class**: Use the class panel to assign or change the class of a box
-
-All edits are recorded with an audit trail (manual vs. assisted source, timestamp).
-
-### 5. Train a Model
-
-Navigate to the Training page:
-1. Select a dataset
-2. Choose a model family (YOLOv5, YOLOv8, YOLOv8-OBB, YOLOv10, YOLOv11) and size
-3. Configure training parameters (epochs, batch size, image size, device)
-4. Click **"Start Training"** — training runs as a subprocess, with logs displayed in real-time
-5. On completion, a model version is automatically created
-
-### 6. Assisted Annotation
-
-After training a model, use it to accelerate annotation:
-1. Load the trained model on the Annotation page
-2. Run inference on selected images — candidate bounding boxes appear with confidence scores
-3. Review and confirm/reject each suggestion, or use **"Bulk Confirm"** to accept all above a confidence threshold
-
-### 7. Export
-
-On the Export page, select a model version and choose an export format:
-- **PT** — PyTorch weight file (direct copy of `best.pt`)
-- **ONNX** — ONNX format (requires `onnxruntime` for verification)
-
-## Development
-
-### Running Tests
-
-```bash
-# Run all unit tests
-python -m pytest labeltorch/tests/unit/ -v
-
-# Run with coverage
-python -m pytest labeltorch/tests/unit/ -v --cov=labeltorch
-
-# Run a specific test module
-python -m pytest labeltorch/tests/unit/test_yolo_parser.py -v
-```
-
-The project currently has **73 unit tests** covering database, YOLO parser, project/dataset/annotation/training services.
-
-### Project Structure
-
-```
-labeltorch/
-├── __init__.py
-├── __main__.py                  # Entry: python -m labeltorch
-├── main.py                      # App bootstrap (Qt + context + window)
-├── app/
-│   ├── context.py               # AppContext — service registry
-│   ├── domain/
-│   │   ├── models.py            # 9 dataclass entities
-│   │   ├── enums.py             # 6 enum types (ModelFamily, TrainJobStatus, ...)
-│   │   ├── schemas.py           # 13 request/response schemas
-│   │   └── bbox.py              # Shared BBox class
-│   ├── services/
-│   │   ├── project_service.py   # Project CRUD + directory management
-│   │   ├── dataset_service.py   # Import, validate, split, remap
-│   │   ├── annotation_service.py# Save, history, bulk confirm
-│   │   ├── training_service.py  # Train job lifecycle + state machine
-│   │   ├── version_service.py   # Model version tracking + lineage
-│   │   ├── export_service.py    # PT / ONNX export
-│   │   ├── inference_service.py # YOLO model inference
-│   │   └── assisted_annotation_service.py  # ML-assisted workflow
-│   ├── infra/
-│   │   ├── startup_check.py     # 7-item environment diagnostics
-│   │   ├── db/
-│   │   │   ├── sqlite.py        # SQLite Database (WAL, migrations)
-│   │   │   └── migrations/
-│   │   │       └── v001_initial.py  # 8 tables + 7 indexes
-│   │   ├── logging/
-│   │   │   └── logger.py        # Rotating file + console logger
-│   │   └── storage/
-│   │       ├── file_repo.py     # Atomic write, image scan, label pairing
-│   │       └── yolo_parser.py   # YOLO txt parse/validate/write/remap
-│   ├── ui/
-│   │   ├── main_window.py       # QMainWindow: sidebar + page stack
-│   │   ├── pages/
-│   │   │   ├── project_page.py  # Project management
-│   │   │   ├── dataset_page.py  # Dataset import/split/remap
-│   │   │   ├── annotation_page.py# Annotation editing + canvas
-│   │   │   ├── train_page.py    # Training config + monitoring
-│   │   │   └── export_page.py   # Model export
-│   │   └── widgets/
-│   │       └── image_canvas.py  # Custom QWidget: image + bbox editor
-│   └── tasks/                   # (Reserved for async tasks)
-└── tests/
-    ├── unit/                    # 73 unit tests
-    │   ├── test_database.py
-    │   ├── test_yolo_parser.py
-    │   ├── test_project_service.py
-    │   ├── test_dataset_service.py
-    │   └── test_training_service.py
-    └── integration/             # (Reserved)
-```
-
-### Contributing
-
-Contributions are welcome! Here's how you can help:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/my-feature`)
-3. Make your changes and add tests
-4. Ensure all tests pass (`python -m pytest labeltorch/tests/unit/ -v`)
-5. Commit with a descriptive message
-6. Push and open a Pull Request
-
-Please follow the existing code style and ensure your changes include appropriate test coverage.
-
-## Building
-
-To build a standalone Windows executable:
-
-```bash
-build_release.bat
-```
-
-Output: `dist/LabelTorch/LabelTorch.exe`
-
-> **Note**: Edit `build_release.bat` to set the correct Python path for your environment before building.
-
-## FAQ
-
-**Q: Training is very slow — how do I enable GPU?**
-
-A: Install PyTorch with CUDA support (see [CUDA Setup](#cuda-setup)). Launch LabelTorch and check the startup log — it should show your GPU device name under the CUDA check.
-
-**Q: ONNX export fails with an import error.**
-
-A: Install ONNX Runtime: `pip install onnxruntime>=1.15`
-
-**Q: PySide6 fails to import on Linux.**
-
-A: Make sure you have the required system libraries. On Ubuntu: `sudo apt install libgl1-mesa-glx libxkbcommon-x11-0 libdbus-1-3`
-
-**Q: `start.bat` doesn't work — it says Python not found.**
-
-A: `start.bat` contains a hardcoded conda path. Open the file and change the `PYTHON` variable to point to your Python executable.
-
-**Q: Where is my data stored?**
-
-A: All data is stored under `~/.labeltorch/`. The global database is `~/.labeltorch/labeltorch.db`. Project-specific files (datasets, models, exports) are in the project directory you chose when creating the project.
-
-**Q: Can I use LabelTorch without a GPU?**
-
-A: Yes. All features work on CPU, but model training will be significantly slower. Annotation, dataset management, and export work at full speed regardless of GPU availability.
-
-## Roadmap
-
-- [ ] Segmentation mask annotation support
-- [ ] OBB (Oriented Bounding Box) annotation and training
-- [ ] Multi-language UI (English/Chinese)
-- [ ] Plugin system for custom model backends
-- [ ] Cloud storage integration
-- [ ] Team collaboration features
-
-## Acknowledgments
-
-LabelTorch was inspired by and references the following open-source projects:
-
-- [Ultralytics](https://github.com/ultralytics/ultralytics) — YOLO model training and inference framework
-- [X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling) — AI-assisted annotation tool
-- [LabelImg](https://github.com/HumanSignal/labelImg) — Classic image annotation tool
-- [Labelme](https://github.com/wkentaro/labelme) — Multi-shape annotation tool
-- [CVAT](https://github.com/cvat-ai/cvat) — Computer Vision Annotation Tool
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
----
-
-<div align="center">
-
-# 标炬 LabelTorch
-
-**工业缺陷检测标注与训练工具**
-
 端到端的桌面应用程序，集成图像标注、YOLO 模型训练与模型导出——专为工业缺陷检测工作流打造。
 
-[功能特性](#功能特性) | [英文文档](#features)
+[English Documentation](#english-documentation) | 中文文档
 
 </div>
 
@@ -774,3 +387,388 @@ LabelTorch 的开发参考和借鉴了以下开源项目：
 ## 许可证
 
 本项目基于 [MIT 许可证](LICENSE) 开源。
+
+---
+
+<div align="center">
+
+*The following is the English version of this document.*
+
+[中文文档](#功能特性) | English Documentation
+
+</div>
+
+---
+
+# English Documentation
+
+## Features
+
+- **Project Management** — Create, open, and delete projects, each with isolated data directories and SQLite databases
+- **Dataset Import** — Import YOLO-format datasets (images + `.txt` labels) with automatic validation and integrity checks
+- **Annotation Editing** — Draw, select, move, and resize bounding boxes on a custom `ImageCanvas` widget with per-class color coding
+- **Dataset Operations** — Train/val split with Ultralytics `data.yaml` generation, class ID remapping across datasets
+- **Model Training** — Configure and launch YOLOv5/v8/v8-OBB/v10/v11 training jobs via Ultralytics, with real-time log monitoring and state machine lifecycle management
+- **ML-Assisted Annotation** — Load a trained model, run batch inference to auto-generate candidate bounding boxes, then bulk-confirm or filter by confidence threshold
+- **Model Versioning** — Automatic version tracking after each training run with parent lineage linkage
+- **Model Export** — Export trained models as `.pt` (PyTorch) or `.onnx` (ONNX) format with optional verification
+- **Startup Self-Check** — Automatic environment diagnostics on launch (Python packages, CUDA, SQLite, ONNX Runtime)
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│                    UI Layer                      │
+│   MainWindow │ 5 Pages │ ImageCanvas Widget     │
+├─────────────────────────────────────────────────┤
+│                Services Layer                    │
+│  Project │ Dataset │ Annotation │ Training      │
+│  Version │ Export  │ Inference  │ Assisted      │
+├─────────────────────────────────────────────────┤
+│                Domain Layer                      │
+│  Models (9) │ Enums (6) │ Schemas (13) │ BBox  │
+├─────────────────────────────────────────────────┤
+│            Infrastructure Layer                  │
+│  SQLite+WAL │ Migrations │ FileRepo │ Logger   │
+│  YOLOParser │ StartupCheck                     │
+└─────────────────────────────────────────────────┘
+```
+
+The application follows a layered architecture with clear separation of concerns:
+
+- **Domain Layer** — Data models, enums, request/response schemas, and shared value objects
+- **Services Layer** — Business logic with constructor-injected `Database` dependency
+- **Infrastructure Layer** — SQLite persistence, file I/O, logging, and environment checks
+- **UI Layer** — PySide6-based desktop interface with sidebar navigation and page stack
+
+All services are registered in `AppContext`, which serves as the application-wide service locator and is injected into UI pages.
+
+## Tech Stack
+
+| Component | Technology | Version |
+|-----------|-----------|---------|
+| UI Framework | PySide6 (Qt for Python) | ≥ 6.5 |
+| ML Framework | Ultralytics | ≥ 8.0 |
+| Image Processing | Pillow | ≥ 9.0 |
+| Database | SQLite (WAL mode) | built-in |
+| ONNX Runtime | onnxruntime (optional) | ≥ 1.15 |
+| Packaging | PyInstaller | — |
+| Testing | pytest | ≥ 7.0 |
+
+## Getting Started
+
+### Prerequisites
+
+- **Python** ≥ 3.10
+- **CUDA** (optional, recommended for GPU-accelerated training)
+
+### Installation
+
+#### Option 1: Install from Source (Recommended)
+
+```bash
+git clone https://github.com/your-username/LabelTorch.git
+cd LabelTorch
+pip install -e .
+```
+
+#### Option 2: Install with pip
+
+```bash
+pip install labeltorch
+```
+
+#### Option 3: Using Conda
+
+```bash
+conda create -n labeltorch python=3.10
+conda activate labeltorch
+git clone https://github.com/your-username/LabelTorch.git
+cd LabelTorch
+pip install -e .
+```
+
+For ONNX export support, install the optional dependency:
+
+```bash
+pip install -e ".[export]"
+```
+
+### Running
+
+After installation, launch the application with:
+
+```bash
+labeltorch
+```
+
+Or run directly as a Python module:
+
+```bash
+python -m labeltorch
+```
+
+On Windows, you can also double-click `start.bat` (edit the Python path inside the file to match your environment first).
+
+## Configuration
+
+LabelTorch requires zero configuration to get started. All data is stored under:
+
+```
+~/.labeltorch/
+├── labeltorch.db          # Global database (SQLite, WAL mode)
+├── logs/                  # Application logs
+│   └── labeltorch.log     # Rotating log (10MB × 5 backups)
+└── (project directories)
+    ├── datasets/          # Imported dataset images & labels
+    ├── models/            # Trained model weights (.pt)
+    ├── exports/           # Exported models (.pt / .onnx)
+    └── .cache/            # Temporary cache
+```
+
+### Startup Self-Check
+
+On every launch, LabelTorch runs 7 automatic checks:
+
+| Check | Severity | Description |
+|-------|----------|-------------|
+| Writable Directory | Error | Can write to `~/.labeltorch/` |
+| SQLite | Error | SQLite version and WAL mode support |
+| PySide6 | Error | PySide6 is installed and importable |
+| Pillow | Error | Pillow is installed and importable |
+| Ultralytics | Error | Ultralytics is installed and importable |
+| CUDA | Warning | CUDA availability for GPU training |
+| ONNX Runtime | Warning | ONNX Runtime for export verification |
+
+Errors will display a warning dialog but the application will still attempt to start. Warnings are logged but do not interrupt startup.
+
+### CUDA Setup
+
+For GPU-accelerated training, install PyTorch with CUDA support:
+
+```bash
+# Example: CUDA 11.8
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+
+# Example: CUDA 12.1
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+```
+
+Without CUDA, training will fall back to CPU (significantly slower).
+
+## Usage
+
+### Workflow
+
+The typical end-to-end workflow in LabelTorch:
+
+```
+Create Project → Import Dataset → Validate & Split → Annotate → Train → Version → Export
+                                    ↑                              │
+                                    └──── Assisted Annotation ←────┘
+```
+
+### 1. Create a Project
+
+Launch LabelTorch, click **"New Project"** on the Project page, enter a name and choose a storage directory. Each project maintains its own isolated database and directory structure.
+
+### 2. Import a Dataset
+
+Navigate to the Dataset page, click **"Import"**, and select a YOLO-format dataset directory. The directory should contain:
+
+```
+dataset/
+├── images/
+│   ├── img_001.jpg
+│   ├── img_002.jpg
+│   └── ...
+└── labels/
+    ├── img_001.txt      # YOLO format: class x_center y_center width height
+    ├── img_002.txt
+    └── ...
+```
+
+After import, LabelTorch validates label integrity, detects missing/extra labels, and reports statistics.
+
+### 3. Validate & Split
+
+Use the **"Validate"** button to check for label errors (out-of-bounds coordinates, invalid class IDs, empty labels). Then use **"Split"** to divide the dataset into train/val sets — this generates the `data.yaml` file required by Ultralytics training.
+
+### 4. Annotate
+
+Open the Annotation page to browse images and draw bounding boxes:
+- **Draw**: Click and drag on the image to create a new box
+- **Select**: Click on an existing box to select it
+- **Move**: Drag a selected box to reposition it
+- **Resize**: Drag the corner handles of a selected box
+- **Class**: Use the class panel to assign or change the class of a box
+
+All edits are recorded with an audit trail (manual vs. assisted source, timestamp).
+
+### 5. Train a Model
+
+Navigate to the Training page:
+1. Select a dataset
+2. Choose a model family (YOLOv5, YOLOv8, YOLOv8-OBB, YOLOv10, YOLOv11) and size
+3. Configure training parameters (epochs, batch size, image size, device)
+4. Click **"Start Training"** — training runs as a subprocess, with logs displayed in real-time
+5. On completion, a model version is automatically created
+
+### 6. Assisted Annotation
+
+After training a model, use it to accelerate annotation:
+1. Load the trained model on the Annotation page
+2. Run inference on selected images — candidate bounding boxes appear with confidence scores
+3. Review and confirm/reject each suggestion, or use **"Bulk Confirm"** to accept all above a confidence threshold
+
+### 7. Export
+
+On the Export page, select a model version and choose an export format:
+- **PT** — PyTorch weight file (direct copy of `best.pt`)
+- **ONNX** — ONNX format (requires `onnxruntime` for verification)
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all unit tests
+python -m pytest labeltorch/tests/unit/ -v
+
+# Run with coverage
+python -m pytest labeltorch/tests/unit/ -v --cov=labeltorch
+
+# Run a specific test module
+python -m pytest labeltorch/tests/unit/test_yolo_parser.py -v
+```
+
+The project currently has **73 unit tests** covering database, YOLO parser, project/dataset/annotation/training services.
+
+### Project Structure
+
+```
+labeltorch/
+├── __init__.py
+├── __main__.py                  # Entry: python -m labeltorch
+├── main.py                      # App bootstrap (Qt + context + window)
+├── app/
+│   ├── context.py               # AppContext — service registry
+│   ├── domain/
+│   │   ├── models.py            # 9 dataclass entities
+│   │   ├── enums.py             # 6 enum types (ModelFamily, TrainJobStatus, ...)
+│   │   ├── schemas.py           # 13 request/response schemas
+│   │   └── bbox.py              # Shared BBox class
+│   ├── services/
+│   │   ├── project_service.py   # Project CRUD + directory management
+│   │   ├── dataset_service.py   # Import, validate, split, remap
+│   │   ├── annotation_service.py# Save, history, bulk confirm
+│   │   ├── training_service.py  # Train job lifecycle + state machine
+│   │   ├── version_service.py   # Model version tracking + lineage
+│   │   ├── export_service.py    # PT / ONNX export
+│   │   ├── inference_service.py # YOLO model inference
+│   │   └── assisted_annotation_service.py  # ML-assisted workflow
+│   ├── infra/
+│   │   ├── startup_check.py     # 7-item environment diagnostics
+│   │   ├── db/
+│   │   │   ├── sqlite.py        # SQLite Database (WAL, migrations)
+│   │   │   └── migrations/
+│   │   │       └── v001_initial.py  # 8 tables + 7 indexes
+│   │   ├── logging/
+│   │   │   └── logger.py        # Rotating file + console logger
+│   │   └── storage/
+│   │       ├── file_repo.py     # Atomic write, image scan, label pairing
+│   │       └── yolo_parser.py   # YOLO txt parse/validate/write/remap
+│   ├── ui/
+│   │   ├── main_window.py       # QMainWindow: sidebar + page stack
+│   │   ├── pages/
+│   │   │   ├── project_page.py  # Project management
+│   │   │   ├── dataset_page.py  # Dataset import/split/remap
+│   │   │   ├── annotation_page.py# Annotation editing + canvas
+│   │   │   ├── train_page.py    # Training config + monitoring
+│   │   │   └── export_page.py   # Model export
+│   │   └── widgets/
+│   │       └── image_canvas.py  # Custom QWidget: image + bbox editor
+│   └── tasks/                   # (Reserved for async tasks)
+└── tests/
+    ├── unit/                    # 73 unit tests
+    │   ├── test_database.py
+    │   ├── test_yolo_parser.py
+    │   ├── test_project_service.py
+    │   ├── test_dataset_service.py
+    │   └── test_training_service.py
+    └── integration/             # (Reserved)
+```
+
+### Contributing
+
+Contributions are welcome! Here's how you can help:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Make your changes and add tests
+4. Ensure all tests pass (`python -m pytest labeltorch/tests/unit/ -v`)
+5. Commit with a descriptive message
+6. Push and open a Pull Request
+
+Please follow the existing code style and ensure your changes include appropriate test coverage.
+
+## Building
+
+To build a standalone Windows executable:
+
+```bash
+build_release.bat
+```
+
+Output: `dist/LabelTorch/LabelTorch.exe`
+
+> **Note**: Edit `build_release.bat` to set the correct Python path for your environment before building.
+
+## FAQ
+
+**Q: Training is very slow — how do I enable GPU?**
+
+A: Install PyTorch with CUDA support (see [CUDA Setup](#cuda-setup)). Launch LabelTorch and check the startup log — it should show your GPU device name under the CUDA check.
+
+**Q: ONNX export fails with an import error.**
+
+A: Install ONNX Runtime: `pip install onnxruntime>=1.15`
+
+**Q: PySide6 fails to import on Linux.**
+
+A: Make sure you have the required system libraries. On Ubuntu: `sudo apt install libgl1-mesa-glx libxkbcommon-x11-0 libdbus-1-3`
+
+**Q: `start.bat` doesn't work — it says Python not found.**
+
+A: `start.bat` contains a hardcoded conda path. Open the file and change the `PYTHON` variable to point to your Python executable.
+
+**Q: Where is my data stored?**
+
+A: All data is stored under `~/.labeltorch/`. The global database is `~/.labeltorch/labeltorch.db`. Project-specific files (datasets, models, exports) are in the project directory you chose when creating the project.
+
+**Q: Can I use LabelTorch without a GPU?**
+
+A: Yes. All features work on CPU, but model training will be significantly slower. Annotation, dataset management, and export work at full speed regardless of GPU availability.
+
+## Roadmap
+
+- [ ] Segmentation mask annotation support
+- [ ] OBB (Oriented Bounding Box) annotation and training
+- [ ] Multi-language UI (English/Chinese)
+- [ ] Plugin system for custom model backends
+- [ ] Cloud storage integration
+- [ ] Team collaboration features
+
+## Acknowledgments
+
+LabelTorch was inspired by and references the following open-source projects:
+
+- [Ultralytics](https://github.com/ultralytics/ultralytics) — YOLO model training and inference framework
+- [X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling) — AI-assisted annotation tool
+- [LabelImg](https://github.com/HumanSignal/labelImg) — Classic image annotation tool
+- [Labelme](https://github.com/wkentaro/labelme) — Multi-shape annotation tool
+- [CVAT](https://github.com/cvat-ai/cvat) — Computer Vision Annotation Tool
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

@@ -33,7 +33,11 @@ cd /d "%PROJECT_ROOT%"
     --hidden-import=labeltorch.app.infra.db.migrations.v001_initial ^
     --hidden-import=labeltorch.app.domain.enums ^
     --hidden-import=ultralytics ^
+    --hidden-import=ultralytics.nn ^
+    --hidden-import=ultralytics.models ^
+    --hidden-import=ultralytics.engine ^
     --hidden-import=PIL ^
+    --hidden-import=PIL.Image ^
     --noconfirm ^
     labeltorch\main.py
 
@@ -44,10 +48,20 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [4/4] Build complete!
+REM --- Copy launcher ---
+echo [4/5] Copying launcher.bat...
+copy /y "%PROJECT_ROOT%dist\launcher.bat" "%PROJECT_ROOT%dist\LabelTorch\launcher.bat" >nul 2>&1
+if not exist "%PROJECT_ROOT%dist\LabelTorch\launcher.bat" (
+    echo @echo off> "%PROJECT_ROOT%dist\LabelTorch\launcher.bat"
+    echo cd /d "%%~dp0">> "%PROJECT_ROOT%dist\LabelTorch\launcher.bat"
+    echo start "" "LabelTorch.exe">> "%PROJECT_ROOT%dist\LabelTorch\launcher.bat"
+)
+
+echo [5/5] Build complete!
 echo.
 echo Output directory: %PROJECT_ROOT%dist\LabelTorch\
 echo.
-echo You can run: dist\LabelTorch\LabelTorch.exe
+echo Double-click: dist\LabelTorch\launcher.bat
+echo Or run:        dist\LabelTorch\LabelTorch.exe
 echo.
 pause
